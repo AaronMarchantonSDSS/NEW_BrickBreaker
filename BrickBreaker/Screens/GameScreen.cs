@@ -18,6 +18,7 @@ using System.IO;
 using System.Xml;
 using System.Runtime.CompilerServices;
 using System.Timers;
+using System.Security.Cryptography.X509Certificates;
 
 namespace BrickBreaker
 {
@@ -32,6 +33,9 @@ namespace BrickBreaker
 
         // Game values
         int lives;
+
+        // game score
+        public static int score;
 
         // Paddle and Ball objects
         Paddle paddle;
@@ -54,6 +58,7 @@ namespace BrickBreaker
         // Powerup management and random object
         List<Powerup> powerups = new List<Powerup>();
         List<Powerup> activePowerups = new List<Powerup>();
+        List<String> activePowerupTypes = new List<String>();
         Random rand = new Random();
 
         // Powerup duration & timers
@@ -80,10 +85,13 @@ namespace BrickBreaker
 
         public void OnStart()
         {
-            //InitPowerupTimers(); // add event handlers for timers
+            InitPowerupTimers(); // add event handlers for timers
 
             //set life counter
             lives = 3;
+
+            // set running score
+            score = 0;
 
             // run opening UI and UX code
             LFischStart();
@@ -115,33 +123,24 @@ namespace BrickBreaker
             int ySpeed = 6;
             ball = new Ball(ballX, ballY, xSpeed, ySpeed, ballSize, speedMultiplier); // added speed parameter
 
-            #region Creates blocks for generic level. Need to replace with code that loads levels.
-
-            //TODO - replace all the code in this region eventually with code that loads levels from xml files
-
             blocks.Clear();
             LoadBlocks();
 
-            #endregion
+            // reset any variable affected by powerups
+            paddle.width = 80; // reset paddle size
+            paddle.speed = 12; // reset paddle speed
+            ball.speedMultiplier = 1.2; // reset ball speed
 
-            // start the game engine loop
+            // don't start the game engine loop until space pressed
             gameTimer.Enabled = false;
 
-            gameSound.Open(new Uri(Application.StartupPath + "/Resources/audiomass-output.mp3"));
+            gameSound.Open(new Uri(Application.StartupPath + "/Resources/background.mp3"));
             gameSound.MediaEnded += new EventHandler(gameSound_MediaEnded);
             gameSound.Play();
         }
 
         public void LFischStart()
         {
-            // gameSound.Play();
-
-            string fontFilePath;
-            PrivateFontCollection font = new PrivateFontCollection();
-            byte[] fontData = Properties.Resources.DynaPuff_VariableFont_wdth_wght;
-            IntPtr fontPtr = Marshal.AllocCoTaskMem(fontData.Length);
-            Marshal.Copy(fontData, 0, fontPtr, fontData.Length);
-            font.AddMemoryFont(fontPtr, fontData.Length);
 
             Random randBG = new Random();
 
@@ -227,9 +226,6 @@ namespace BrickBreaker
             // Move ball
             ball.Move();
 
-
-
-
             // Check for collision with top and side walls
             ball.WallCollision(this);
 
@@ -259,6 +255,9 @@ namespace BrickBreaker
                 if (ball.BlockCollision(b))
                 {
                     blocks.Remove(b);
+                    b.AddScore();
+
+                    scoreLabel.Text = $"{score}";
 
                     popPlayer.Play();
 
@@ -268,7 +267,7 @@ namespace BrickBreaker
                         OnEnd();
                     }
                     // Block was hit — now spawn a powerup
-                    if (rand.Next(0, 100) < 25) // 25% chance
+                    if (rand.Next(0, 100) < 100) // 25% chance
                     {
                         string[] types = { "ExtraLife", "SpeedBoost", "SpeedReduction", "BigPaddle", "BulletBoost" };
                         string type = types[rand.Next(types.Length)];
@@ -321,12 +320,37 @@ namespace BrickBreaker
                     // If piercing, no bounce and continue checking next block
                 }
             }
+
+            PowerupCollision();
+
             // Update ball color
             ballBrush = new SolidBrush(ballColor);
 
             foreach (Powerup p in powerups)
             {
                 p.Move();
+            }
+            Rectangle paddleRect = new Rectangle(paddle.x, paddle.y, paddle.width, paddle.height);
+
+            for (int i = powerups.Count - 1; i >= 0; i--)
+            {
+                Powerup p = powerups[i];
+                Rectangle powerupRect = new Rectangle(p.x, p.y, p.size, p.size);
+
+                // Check if paddle collects the powerup
+                if (powerupRect.IntersectsWith(paddleRect))
+                {
+                    ApplyPowerup(p.type);      // Apply effect
+                    powerups.RemoveAt(i);      // Remove powerup from screen
+                }
+                else if (p.y > paddle.y + paddle.height)
+                {
+                    powerups.RemoveAt(i);      // Remove if it falls below screen
+                }
+                else
+                {
+                    p.Move();                  // Let it fall down
+                }
             }
 
             //PowerupCollision();
@@ -340,13 +364,26 @@ namespace BrickBreaker
             gameSound.Close();
 
             // Goes to the game over screen
-            Form form = this.FindForm();
-            Screens.EndScreenL ps = new Screens.EndScreenL();
+            if (Screens.OptionsScreenL.light == true)
+            {
+                Form form = this.FindForm();
+                Screens.EndScreenL ps = new Screens.EndScreenL();
 
-            ps.Location = new Point((form.Width - ps.Width) / 2, (form.Height - ps.Height) / 2);
+                ps.Location = new Point((form.Width - ps.Width) / 2, (form.Height - ps.Height) / 2);
 
-            form.Controls.Add(ps);
-            form.Controls.Remove(this);
+                form.Controls.Add(ps);
+                form.Controls.Remove(this);
+            }
+            else
+            {
+                Form form = this.FindForm();
+                Screens.EndScreenD psd = new Screens.EndScreenD();
+
+                psd.Location = new Point((form.Width - psd.Width) / 2, (form.Height - psd.Height) / 2);
+
+                form.Controls.Add(psd);
+                form.Controls.Remove(this);
+            }
         }
 
         public void GameScreen_Paint(object sender, PaintEventArgs e)
@@ -357,12 +394,33 @@ namespace BrickBreaker
 
             // Draw collected powerups as squares in top right
             int collectedX = 850;
-            int collectedY = 20;
-            foreach (Powerup p in activePowerups)
+            int collectedY = 652;
+            foreach (String type in activePowerupTypes)
             {
                 collectedX -= 30;
-                Rectangle powerupRect = new Rectangle(collectedX, collectedY, p.size, p.size);
-                e.Graphics.FillRectangle(p.brush, powerupRect);
+                Rectangle powerupRect = new Rectangle(collectedX, collectedY, 15, 15);
+                Brush powerupBrush = new SolidBrush(Color.Gray);
+
+                switch (type)
+                {
+                    case "ExtraLife":
+                        powerupBrush = new SolidBrush(Color.Green);
+                        break;
+                    case "SpeedBoost":
+                        powerupBrush = new SolidBrush(Color.Blue);
+                        break;
+                    case "BigPaddle":
+                        powerupBrush = new SolidBrush(Color.Orange);
+                        break;
+                    case "SpeedReduction":
+                        powerupBrush = new SolidBrush(Color.Red);
+                        break;
+                    case "BulletBoost":
+                        powerupBrush = new SolidBrush(Color.Yellow);
+                        break;
+                }
+
+                e.Graphics.FillRectangle(powerupBrush, powerupRect);
             }
 
             // Draws blocks
@@ -372,23 +430,23 @@ namespace BrickBreaker
 
                 if (b.colour == Color.Red)
                 {
-                    e.Graphics.DrawImage(Properties.Resources.redCoral, recNumber);
+                    e.Graphics.DrawImage(Properties.Resources.resized_redCoral, recNumber);
                 }
                 else if (b.colour == Color.Blue)
                 {
-                    e.Graphics.DrawImage(Properties.Resources.blueCoral, recNumber);
+                    e.Graphics.DrawImage(Properties.Resources.resized_blueCoral, recNumber);
                 }
                 else if (b.colour == Color.Pink)
                 {
-                    e.Graphics.DrawImage(Properties.Resources.pinkCoral, recNumber);
+                    e.Graphics.DrawImage(Properties.Resources.resized_pinkCoral, recNumber);
                 }
                 else if (b.colour == Color.Yellow)
                 {
-                    e.Graphics.DrawImage(Properties.Resources.yellowCoral, recNumber);
+                    e.Graphics.DrawImage(Properties.Resources.resized_yellowCoral, recNumber);
                 }
                 else if (b.colour == Color.Gray)
                 {
-                    e.Graphics.DrawImage(Properties.Resources.grayCoral, recNumber);
+                    e.Graphics.DrawImage(Properties.Resources.resized_greyCoral, recNumber);
                 }
             }
 
@@ -401,36 +459,7 @@ namespace BrickBreaker
             }
         }
 
-        private void ApplyPowerup(string type)
-        {
-            switch (type)
-            {
-                case "ExtraLife":
-                    lives++; // Assuming you have a 'lives' variable
-                    break;
-                case "SpeedBoost":
-                    ball.speedMultiplier += 2; // Assuming you have a 'ballSpeed' or similar
-                    break;
-                case "BigPaddle":
-                    paddle.width += 40; // Temporarily increase paddle size
-                    break;
-                case "SpeedReduction":
-                    ball.speedMultiplier = Math.Max(2, ball.speedMultiplier - 2); // Don't go below 2
-                    break;
-                case "BulletBoost":
-                    piercingBall = true;
-
-                    // Start a timer to turn it off after 5 seconds
-                    piercingTimer.Interval = 5000;
-                    piercingTimer.Tick += (s, e) =>
-                    {
-                        piercingBall = false;
-                        piercingTimer.Stop();
-                    };
-                    piercingTimer.Start();
-                    break;
-            }
-        }
+        
 
         private void LoadBlocks()
         {
@@ -442,7 +471,6 @@ namespace BrickBreaker
             while (reader.Read())
             {
                 if (reader.NodeType == XmlNodeType.Text)
-
                 {
                     newX = reader.ReadString();
                     int blockX = Convert.ToInt32(newX);
@@ -459,6 +487,108 @@ namespace BrickBreaker
                     blocks.Add(b);
                 }
             }
+        }
+
+        private void PowerupCollision()
+        {
+            // add intersecting powerups to delete list
+            // MUST be done (removing elements while iterating gives enumeration error)
+            List<Powerup> intersectingList = new List<Powerup>();
+
+            foreach (Powerup p in powerups)
+            {
+                Rectangle powerupRec = new Rectangle(p.x, p.y, p.size, p.size);
+                Rectangle paddleRec = new Rectangle(paddle.x, paddle.y, paddle.width, paddle.height);
+
+                if (powerupRec.IntersectsWith(paddleRec)) intersectingList.Add(p);
+            }
+
+            // add to activePowerups, remove from powerups list, start corresponding timer
+            foreach (Powerup p in intersectingList)
+            {
+                if (!activePowerupTypes.Contains(p.type)) // only add if not already active
+                {
+                    activePowerups.Add(p);
+                }
+
+                activePowerupTypes.Add(p.type);
+                powerups.Remove(p);
+
+                ApplyPowerup(p.type); // apply the powerup effect
+            }
+        }
+
+        private void ApplyPowerup(string type)
+        {
+            switch (type)
+            {
+                case "ExtraLife":
+                    lives++; // Assuming you have a 'lives' variable
+                    break;
+                case "SpeedBoost":
+                    SpeedBoostTimer.Start();
+                    paddle.speed = 20;
+                    break;
+                case "BigPaddle":
+                    BigPaddleTimer.Start();
+                    paddle.width += 40; // Temporarily increase paddle size
+                    break;
+                case "SpeedReduction":
+                    SpeedReductionTimer.Start();
+                    ball.speedMultiplier = 0.5;
+                    break;
+                case "BulletBoost":
+                    BulletTimer.Start();
+                    piercingBall = true;
+                    break;
+            }
+        }
+        private void TimerElapsed(object sender, ElapsedEventArgs e, String timerId)  // Timer elapsed event listener
+        {
+            Console.WriteLine($"Timer {timerId} finished at {DateTime.Now}");
+
+            switch (timerId)
+            {
+                case "SpeedBoost":
+
+                    paddle.speed = 12; // Reset paddle speed
+                    activePowerupTypes.Remove("SpeedBoost");
+
+                    break;
+                case "BigPaddle":
+
+                    paddle.width -= 40; // Reset paddle size
+                    activePowerupTypes.Remove("BigPaddle");
+
+                    break;
+                case "SpeedReduction":
+
+                    ball.speedMultiplier = 1.2; // Reset ball speed
+                    activePowerupTypes.Remove("SpeedReduction");
+
+                    break;
+                case "Bullet":
+
+                    // end effect
+
+                    break;
+                default:
+                    break;
+            }
+        }
+
+
+        private void InitPowerupTimers() // assign event handlers for powerup timers.
+        {
+            SpeedBoostTimer.Elapsed += (sender, e) => TimerElapsed(sender, e, "SpeedBoost");
+            BigPaddleTimer.Elapsed += (sender, e) => TimerElapsed(sender, e, "BigPaddle");
+            SpeedReductionTimer.Elapsed += (sender, e) => TimerElapsed(sender, e, "SpeedReduction");
+            BulletTimer.Elapsed += (sender, e) => TimerElapsed(sender, e, "Bullet");
+
+            SpeedBoostTimer.AutoReset = false;
+            BigPaddleTimer.AutoReset = false;
+            SpeedReductionTimer.AutoReset = false;
+            BulletTimer.AutoReset = false;
         }
     }
 }

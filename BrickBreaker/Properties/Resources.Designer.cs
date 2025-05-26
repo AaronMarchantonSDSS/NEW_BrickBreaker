@@ -128,18 +128,70 @@ namespace BrickBreaker.Properties {
                 return ResourceManager.GetStream("popSound", resourceCulture);
             }
         }
-
+        
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap redCoral
-        {
-            get
-            {
+        internal static System.Drawing.Bitmap redCoral {
+            get {
                 object obj = ResourceManager.GetObject("redCoral", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap resized_blueCoral {
+            get {
+                object obj = ResourceManager.GetObject("resized_blueCoral", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap resized_greyCoral {
+            get {
+                object obj = ResourceManager.GetObject("resized_greyCoral", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap resized_pinkCoral {
+            get {
+                object obj = ResourceManager.GetObject("resized_pinkCoral", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap resized_redCoral {
+            get {
+                object obj = ResourceManager.GetObject("resized_redCoral", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap resized_yellowCoral {
+            get {
+                object obj = ResourceManager.GetObject("resized_yellowCoral", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap seaweed_removebg_preview {
             get {
                 object obj = ResourceManager.GetObject("seaweed_removebg_preview", resourceCulture);
@@ -163,16 +215,6 @@ namespace BrickBreaker.Properties {
         internal static System.Drawing.Bitmap SpecImage2 {
             get {
                 object obj = ResourceManager.GetObject("SpecImage2", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        internal static System.Drawing.Bitmap THIS_ONE {
-            get {
-                object obj = ResourceManager.GetObject("THIS_ONE", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
